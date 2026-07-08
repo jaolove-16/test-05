@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <!-- บรรทัดนี้สำคัญมากค่ะ ช่วยให้เว็บอ่านภาษาไทยได้ ไม่เพี้ยนเป็นต่างดาว -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jaolove.Studio16 Payment</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- นำเข้าฟอนต์ Pattaya สำหรับหัวข้อ และ IBM Plex Sans Thai สำหรับเนื้อหา -->
+    <link href="https://fonts.googleapis.com/css2?family=Pattaya&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'IBM Plex Sans Thai', sans-serif;
+            background-color: #FFF7D8; /* สีพื้นหลังหลักแนว Igari */
+            /* สร้าง Stripe Pattern (ลายทางเฉียง) ด้วยสีที่อ่อนกว่า */
+            background-image: linear-gradient(45deg, #FFFDF0 25%, transparent 25%, transparent 50%, #FFFDF0 50%, #FFFDF0 75%, transparent 75%, transparent);
+            background-size: 40px 40px;
+        }
+        .font-pattaya {
+            font-family: 'Pattaya', sans-serif;
+        }
+        .bounce-hover:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ตกแต่งเทคเจอร์กระดาษฉีกมุมบนซ้าย (ปรับใหม่เป็น สีเขียวมะกอก + Gingham) */
+        .torn-paper-topleft {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 160px;
+            height: 160px;
+            background-color: #C7CB74; /* สีเขียวมะกอก */
+            /* ตกแต่งด้วย Gingham Pattern (ลายตาราง) สีเขียวที่อ่อนกว่า */
+            background-image: linear-gradient(90deg, rgba(255,253,240,0.4) 50%, transparent 50%),
+                              linear-gradient(rgba(255,253,240,0.4) 50%, transparent 50%);
+            background-size: 20px 20px;
+            clip-path: polygon(0 0, 100% 0, 85% 15%, 90% 25%, 70% 35%, 75% 50%, 55% 60%, 60% 75%, 35% 80%, 40% 95%, 0 100%);
+            filter: drop-shadow(3px 3px 0px rgba(255,255,255,1)); /* ขอบสีขาวที่เหมือนถูกฉีก */
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* ตกแต่งเทคเจอร์กระดาษฉีกมุมล่างขวา (ปรับใหม่เป็น สีแดง + Polkadot) */
+        .torn-paper-bottomright {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 160px;
+            height: 160px;
+            background-color: #BF2B1F; /* สีแดง */
+            /* ตกแต่งด้วย Polkadot Pattern สีขาว */
+            background-image: radial-gradient(#FFFFFF 20%, transparent 20%);
+            background-size: 16px 16px;
+            clip-path: polygon(100% 100%, 0 100%, 15% 85%, 10% 75%, 30% 65%, 25% 50%, 45% 40%, 40% 25%, 65% 20%, 60% 5%, 100% 0);
+            filter: drop-shadow(-3px -3px 0px rgba(255,255,255,1)); /* ขอบสีขาวที่เหมือนถูกฉีก */
+            z-index: 5;
+            pointer-events: none;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        igari: {
+                            bg: '#FFF7D8',
+                            accent: '#FCEC89',
+                            border: '#BF2B1F',    /* สีเส้นประ/ขอบ */
+                            kiatnakin: '#C7CB74',  /* สีปุ่มคัดลอก Kiatnakin */
+                            wallet: '#326FA2',     /* สีปุ่มคัดลอก Wallet */
+                            text: '#4F3D3C',       /* สีฟอนต์ในส่วนต่างๆ */
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col items-center py-10 px-4 text-igari-text relative overflow-x-hidden">
+
+    <!-- เทคเจอร์กระดาษฉีก ตกแต่งตามมุมจอ (ปรับสีและลายตามบรีฟใหม่) -->
+    <div class="torn-paper-topleft"></div>
+    <div class="torn-paper-bottomright"></div>
+
+    <!-- Toast Notification (Popup แจ้งเตือนเวลาคัดลอกสำเร็จ) -->
+    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-white text-igari-text px-6 py-3 rounded-full shadow-md transition-all duration-300 opacity-0 -translate-y-4 pointer-events-none z-50 flex items-center gap-2 font-bold text-sm border-2 border-igari-border">
+        ✨ คัดลอกสำเร็จแล้วค่ะ ✨
+    </div>
+
+    <!-- Header: How to Pay (ฟอนต์ Pattaya) & jaolove.Studio16 -->
+    <div class="relative z-10 mb-8 text-center mt-4 text-igari-text">
+        <h1 class="font-pattaya text-4xl md:text-5xl text-igari-border tracking-wide drop-shadow-sm mb-1">
+            How to Pay
+        </h1>
+        <p class="text-lg font-bold tracking-wider opacity-90 flex items-center justify-center gap-1">
+            <span>🍎</span> jaolove.Studio16 <span>✨</span>
+        </p>
+    </div>
+
+    <!-- Container หลัก -->
+    <div class="max-w-md w-full relative z-10">
+        
+        <!-- ของตกแต่งรอบๆ Container ด้วยกลุ่มอิโมจิ 🍎🍀✨ -->
+        <span class="absolute -top-6 -left-2 text-2xl rotate-12 animate-pulse select-none">🍎</span>
+        <span class="absolute top-1/4 -right-4 text-xl animate-bounce select-none">🍀</span>
+        <span class="absolute top-1/2 -left-6 text-xl rotate-45 animate-pulse select-none">✨</span>
+        <span class="absolute bottom-20 -right-2 text-2xl -rotate-12 select-none">🍎</span>
+        <span class="absolute -bottom-4 left-6 text-2xl -rotate-6 animate-pulse select-none">✨</span>
+
+        <!-- Card 1: รูปภาพและปุ่มบันทึกรูปภาพ -->
+        <div class="bg-white p-2 pb-4 rounded-[24px] border-2 border-igari-border shadow-sm relative z-10 mb-6">
+            
+            <!-- กระดุมตกแต่งขอบแดง มุมซ้ายบน -->
+            <div class="absolute -top-4 -left-4 z-20">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-12 h-12 transform -rotate-12 drop-shadow-sm">
+                    <circle cx="50" cy="50" r="45" fill="#FCEC89" stroke="#BF2B1F" stroke-width="4"/>
+                    <circle cx="50" cy="50" r="32" fill="none" stroke="#BF2B1F" stroke-width="2" stroke-dasharray="6 6"/>
+                    <circle cx="35" cy="35" r="6" fill="#BF2B1F"/><circle cx="65" cy="35" r="6" fill="#BF2B1F"/>
+                    <circle cx="35" cy="65" r="6" fill="#BF2B1F"/><circle cx="65" cy="65" r="6" fill="#BF2B1F"/>
+                    <path d="M 35 35 L 65 65 M 65 35 L 35 65" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+            
+            <!-- กระดุมตกแต่งขอบแดง มุมขวาล่าง -->
+            <div class="absolute -bottom-3 -right-3 z-20">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-10 h-10 transform rotate-12 drop-shadow-sm">
+                    <circle cx="50" cy="50" r="45" fill="#FFF7D8" stroke="#BF2B1F" stroke-width="4"/>
+                    <circle cx="50" cy="50" r="32" fill="none" stroke="#BF2B1F" stroke-width="2" stroke-dasharray="6 6"/>
+                    <circle cx="35" cy="35" r="6" fill="#BF2B1F"/><circle cx="65" cy="35" r="6" fill="#BF2B1F"/>
+                    <circle cx="35" cy="65" r="6" fill="#BF2B1F"/><circle cx="65" cy="65" r="6" fill="#BF2B1F"/>
+                    <path d="M 35 35 L 65 65 M 65 35 L 35 65" stroke="#BF2B1F" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <!-- รูปภาพสำหรับสแกนจ่าย -->
+            <img id="payment-img" src="IMG_3987.JPG" alt="บัญชี jaolove.Studio16" class="w-full h-auto object-cover rounded-[16px]" onerror="this.src='https://placehold.co/600x600/FFF7D8/BF2B1F?text=jaolove.Studio16'">
+            
+            <!-- ปุ่มกดบันทึกรูปภาพคิวอาร์โค้ด -->
+            <div class="px-2 pt-3 flex justify-center">
+                <button onclick="downloadImage()" class="bounce-hover w-full bg-igari-accent text-igari-text hover:bg-opacity-90 font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-orange-200 text-sm shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    บันทึกรูปภาพลงเครื่อง
+                </button>
+            </div>
+        </div>
+                <!-- Card 2: ข้อความและปุ่มคัดลอก -->
+        <div class="bg-white px-6 pb-8 pt-8 rounded-[24px] border-2 border-igari-border shadow-sm relative z-10">
+            
+            <span class="absolute -top-3 right-8 text-xl rotate-12 drop-shadow-sm animate-pulse select-none">🍎</span>
+            <span class="absolute top-20 -left-3 text-lg -rotate-12 drop-shadow-sm select-none">✨</span>
+
+            <div class="space-y-6 relative z-10">
+                <!-- ข้อความทักทาย / คำอธิบาย -->
+                <div class="text-center space-y-4">
+                    <p class="text-[15px] leading-relaxed font-semibold">
+                        เลขบัญชีตามนี้เลยคับคนสวย 🍎
+                        <br>ชื่อบัญชี <span class="font-bold text-igari-border text-lg">วาสิตา พ.</span> เท่านั้นน้า!!
+                        <br><span class="text-[13px] opacity-75 font-normal mt-1 block">ไม่มีบัญชีอื่นค่ะ สามารถ Save รูปไปสแกนได้เลยนะคะ</span>
+                    </p>
+                    
+                    <!-- ส่วนเทมเพลตโน๊ตสลิป พร้อมปุ่มคัดลอก -->
+                    <div class="bg-[#FFFDF0] rounded-xl p-3.5 text-[13px] flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3 border border-igari-accent shadow-sm w-full">
+                        <div class="flex items-start gap-2.5 text-left leading-relaxed w-full">
+                            <span class="text-lg flex-shrink-0 mt-0.5">🍀</span>
+                            <div>
+                                โน๊ตสลิป <span class="font-bold text-igari-border">"ซื้อ-ขายกับเจ้าเลิฟสตูดิโอ16"</span><br>
+                                <span class="opacity-80 text-[12px]">อย่าลืมแนบสลิปหลังทำการซื้อ-ขายด้วยน้า</span>
+                            </div>
+                        </div>
+                        <!-- ปุ่มกดสำหรับคัดลอกเทมเพลตคำโน๊ตสลิป -->
+                        <button onclick="copyText('ซื้อ-ขายกับเจ้าเลิฟสตูดิโอ16', this)" class="bounce-hover bg-igari-accent text-igari-text hover:opacity-90 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap shadow-sm border border-orange-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            คัดลอกข้อความ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ส่วนเลขบัญชีและปุ่มคัดลอก (คั่นด้วยเส้นประสีแดงมะเขือเทศ) -->
+                <div class="space-y-4 pt-2 border-t-2 border-dashed border-igari-border">
+                    <div class="flex items-center justify-center gap-1 text-[13px] opacity-80 mt-4 mb-2 font-medium">
+                        <span class="animate-bounce">✨</span>
+                        จิ้มปุ่มเพื่อคัดลอกเลขบัญชีได้เลยค้าบ
+                        <span class="animate-bounce">✨</span>
+                    </div>
+
+                    <!-- Kiatnakin (ปุ่มสีเขียวมะกอก #C7CB74) -->
+                    <div class="bg-white rounded-[16px] p-3 flex items-center justify-between border border-neutral-200 shadow-sm transition-all hover:border-igari-kiatnakin">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-igari-kiatnakin font-bold text-xs border border-neutral-100">
+                                KK
+                            </div>
+                            <div>
+                                <div class="text-[11px] opacity-75 font-medium mb-0.5">เกียรตินาคินภัทร (วาสิตา พ.)</div>
+                                <div class="font-bold tracking-wider text-base">208-8-43045-2</div>
+                            </div>
+                        </div>
+                        <button onclick="copyText('208-8-43045-2', this)" class="bounce-hover bg-igari-kiatnakin hover:opacity-90 text-white text-[12px] font-bold px-4 py-2 rounded-full transition-all flex items-center gap-1 whitespace-nowrap flex-shrink-0 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            คัดลอก
+                        </button>
+                    </div>
+
+                    <!-- Wallet (ปุ่มสีน้ำเงิน #326FA2) -->
+                    <div class="bg-white rounded-[16px] p-3 flex items-center justify-between border border-neutral-200 shadow-sm transition-all hover:border-igari-wallet">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-igari-wallet font-bold text-xs border border-neutral-100">
+                                TMW
+                            </div>
+                            <div>
+                                <div class="text-[11px] opacity-75 font-medium mb-0.5">วอเลท (วาสิตา พ.)</div>
+                                <div class="font-bold tracking-wider text-base">080-891-0494</div>
+                            </div>
+                        </div>
+                        <button onclick="copyText('080-891-0494', this)" class="bounce-hover bg-igari-wallet hover:opacity-90 text-white text-[12px] font-bold px-4 py-2 rounded-full transition-all flex items-center gap-1 whitespace-nowrap flex-shrink-0 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            คัดลอก
+                        </button>
+                    </div>
+
+                    <!-- หมายเหตุเพิ่มเติม -->
+                    <div class="text-center text-[12px] font-bold bg-igari-accent/30 py-2.5 rounded-xl border border-igari-accent">
+                        ชำระทางทรูวอลเลต ไม่มีบวกเพิ่มทุกกรณีค้าบ 🍀
+                    </div>
+                </div>
+
+                <!-- Footer Note -->
+                <div class="mt-4 pt-4 text-center flex items-center justify-center gap-1 text-[12px] opacity-80 border-t border-dashed border-neutral-200 font-semibold">
+                    Thanks for your support kub~ 🍎
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ฟังก์ชันคัดลอกข้อความ
+        function copyText(text, buttonElement) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast("✨ คัดลอกสำเร็จแล้วค่ะ ✨");
+
+                const originalHtml = buttonElement.innerHTML;
+                const originalBg = buttonElement.style.backgroundColor;
+                const originalColor = buttonElement.style.color;
+                
+                buttonElement.innerHTML = '✔ คัดลอกแล้ว';
+                buttonElement.style.backgroundColor = '#BF2B1F'; // เปลี่ยนสีชั่วคราวให้เข้ากับธีมขอบแดง
+                buttonElement.style.color = '#FFFFFF';
+                buttonElement.classList.add('scale-95');
+                
+                setTimeout(() => {
+                    buttonElement.innerHTML = originalHtml;
+                    buttonElement.style.backgroundColor = originalBg;
+                    buttonElement.style.color = originalColor;
+                    buttonElement.classList.remove('scale-95');
+                }, 2000);
+
+            } catch (err) {
+                console.error('ไม่สามารถคัดลอกได้:', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // ฟังก์ชันสำหรับบันทึก/ดาวน์โหลดรูปภาพ
+        function downloadImage() {
+            const imgElement = document.getElementById('payment-img');
+            const imgSrc = imgElement.src;
+            
+            // ตรวจสอบว่าเป็นรูปภาพตัวอย่างโฮสต์หลัก (placeholder) หรือไม่
+            if (imgSrc.includes('placehold.co')) {
+                showToast("❌ ไม่พบไฟล์รูปภาพหลักสำหรับดาวน์โหลด");
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = imgSrc;
+            link.download = 'jaolove_studio16_payment.jpg'; // ตั้งชื่อไฟล์ที่ดาวน์โหลด
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast("📥 กำลังบันทึกรูปภาพลงเครื่องแล้วค่ะ");
+        }
+
+        // ฟังก์ชันเรียกใช้ Toast Message
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            if (message) {
+                toast.innerHTML = message;
+            }
+            toast.classList.remove('opacity-0', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-4');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
